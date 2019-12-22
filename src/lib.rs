@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use js_sys;
 use wasm_bindgen;
 use wasm_bindgen::prelude::*;
@@ -152,25 +150,6 @@ impl Model {
                 }
             }
         }
-    }
-
-    pub fn print_stdout(&self) {
-        let mut reader = self.world.iter();
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        for _ in 0..self.height {
-            for _ in 0..self.width {
-                handle
-                    .write_all(match reader.next().unwrap() {
-                        Cell::Alive => b"X",
-                        Cell::Dead => b" ",
-                    })
-                    .unwrap();
-            }
-            handle.write_all(b"\n").unwrap();
-        }
-        handle.write_all(b"\n").unwrap();
-        handle.flush().unwrap();
     }
 }
 
