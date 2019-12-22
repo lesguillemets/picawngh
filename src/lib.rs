@@ -55,7 +55,7 @@ pub struct Model {
 
 #[wasm_bindgen]
 impl Model {
-    pub fn random(width: u32, height: u32, rule: Rule) -> Self {
+    pub fn random(width: u32, height: u32) -> Self {
         let mut rng = rand::thread_rng();
         let world = (0..width * height)
             .map(|_| {
@@ -70,8 +70,41 @@ impl Model {
             world,
             width,
             height,
-            rule,
+            rule: RULE,
         }
+    }
+
+    pub fn world(&mut self) -> *const Cell {
+        self.world.as_ptr()
+    }
+
+    pub fn update_and_report(&mut self) -> *const (u32, Cell) {
+        // update itself, and reports where the status changes
+        let current = self.clone();
+        let mut updates = Vec::new();
+        for (i, &cell) in current.world.iter().enumerate() {
+            let neighbours = current.neighbours_of(i as u32);
+            if cell.is_alive() {
+                if neighbours < self.rule.alive_min || self.rule.alive_max < neighbours {
+                    self.world[i] = Cell::Dead;
+                    updates.push((i as u32, Cell::Dead));
+                }
+            } else {
+                // for dead cells
+                if self.rule.birth_min <= neighbours && neighbours <= self.rule.birth_max {
+                    self.world[i] = Cell::Alive;
+                    updates.push((i as u32, Cell::Alive));
+                }
+            }
+        }
+        updates.as_ptr()
+    }
+
+    pub fn w(&self) -> u32 {
+        self.width
+    }
+    pub fn h(&self) -> u32 {
+        self.height
     }
 }
 
@@ -110,28 +143,6 @@ impl Model {
         }
     }
 
-    pub fn update_and_report(&mut self) -> Vec<(u32, Cell)> {
-        // update itself, and reports where the status changes
-        let current = self.clone();
-        let mut updates = Vec::new();
-        for (i, &cell) in current.world.iter().enumerate() {
-            let neighbours = current.neighbours_of(i as u32);
-            if cell.is_alive() {
-                if neighbours < self.rule.alive_min || self.rule.alive_max < neighbours {
-                    self.world[i] = Cell::Dead;
-                    updates.push((i as u32, Cell::Dead));
-                }
-            } else {
-                // for dead cells
-                if self.rule.birth_min <= neighbours && neighbours <= self.rule.birth_max {
-                    self.world[i] = Cell::Alive;
-                    updates.push((i as u32, Cell::Alive));
-                }
-            }
-        }
-        updates
-    }
-
     pub fn print_stdout(&self) {
         let mut reader = self.world.iter();
         let stdout = std::io::stdout();
@@ -162,3 +173,10 @@ pub struct Rule {
     pub alive_min: u8,
     pub alive_max: u8,
 }
+
+const RULE: Rule = Rule {
+    birth_min: 3,
+    birth_max: 3,
+    alive_min: 2,
+    alive_max: 3,
+};
