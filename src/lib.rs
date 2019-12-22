@@ -1,7 +1,18 @@
 use rand::prelude::*;
 use std::io::Write;
 
-const THREADS: usize = 4;
+use wasm_bindgen;
+use wasm_bindgen::prelude::*;
+
+pub mod wasm_util;
+use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+#[wasm_bindgen]
+#[repr(u8)] // bool is not understood
 #[derive(Copy, Debug, Clone)]
 pub enum Cell {
     Dead,
@@ -23,14 +34,26 @@ impl Cell {
     }
 }
 
-#[derive(Clone)]
-pub struct Model {
-    pub world: Vec<Cell>,
-    pub width: u32,
-    pub height: u32,
-    pub rule: Rule,
+#[wasm_bindgen]
+extern "C" {
+    fn alert(s: &str);
 }
 
+#[wasm_bindgen]
+pub fn greet() {
+    alert("Hello, wasm-game-of-life!");
+}
+
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct Model {
+    world: Vec<Cell>,
+    pub width: u32,
+    pub height: u32,
+    rule: Rule,
+}
+
+#[wasm_bindgen]
 impl Model {
     pub fn random(width: u32, height: u32, rule: Rule) -> Self {
         let mut rng = rand::thread_rng();
@@ -50,24 +73,20 @@ impl Model {
             rule,
         }
     }
+}
+
+impl Model {
     fn at(&self, x: u32, y: u32) -> Cell {
         self.world[(y * self.width + x) as usize]
     }
     pub fn neighbours_of(&self, loc: u32) -> u8 {
-        // 累積和で書き直す
         let mut ns = 0;
         let (x, y) = (loc % self.width, loc / self.width);
-        for &neighbour_x in &[
-            x.checked_sub(1).unwrap_or(self.width - 1),
-            x,
-            (x + 1) % self.width,
-        ] {
-            for &neighbour_y in &[
-                y.checked_sub(1).unwrap_or(self.height - 1),
-                y,
-                (y + 1) % self.height,
-            ] {
-                ns += self.at(neighbour_x, neighbour_y).as_num();
+        for &dx in &[self.width - 1, 0, 1] {
+            for &dy in &[self.height - 1, 0, 1] {
+                ns += self
+                    .at((x + dx) % self.width, (y + dy) % self.height)
+                    .as_num();
             }
         }
         ns -= self.world[loc as usize].as_num();
@@ -91,6 +110,28 @@ impl Model {
         }
     }
 
+    pub fn update_and_report(&mut self) -> Vec<(u32, Cell)> {
+        // update itself, and reports where the status changes
+        let current = self.clone();
+        let mut updates = Vec::new();
+        for (i, &cell) in current.world.iter().enumerate() {
+            let neighbours = current.neighbours_of(i as u32);
+            if cell.is_alive() {
+                if neighbours < self.rule.alive_min || self.rule.alive_max < neighbours {
+                    self.world[i] = Cell::Dead;
+                    updates.push((i as u32, Cell::Dead));
+                }
+            } else {
+                // for dead cells
+                if self.rule.birth_min <= neighbours && neighbours <= self.rule.birth_max {
+                    self.world[i] = Cell::Alive;
+                    updates.push((i as u32, Cell::Alive));
+                }
+            }
+        }
+        updates
+    }
+
     pub fn print_stdout(&self) {
         let mut reader = self.world.iter();
         let stdout = std::io::stdout();
@@ -111,6 +152,7 @@ impl Model {
     }
 }
 
+#[wasm_bindgen]
 #[derive(Copy, Debug, Clone)]
 pub struct Rule {
     /// for a Cell::Dead, if birth_min <= neighbour <= birth_max then new cell is born
