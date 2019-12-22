@@ -1,5 +1,5 @@
-import { Model, Cell } from "picawngh";
-import { memory } from "picawngh/picawngh_bg";
+import { Model, Cell } from "../pkg/picawngh.js";
+import { memory } from "../pkg/picawngh_bg.wasm";
 
 const CELL_SIZE = 5;
 const DEAD_COLOUR = "#0f2e1c";
