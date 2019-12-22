@@ -1,0 +1,12 @@
+# picawngh
+
+cellular automata in gh-pages with rust + webassembly
+
+## building
+
+```
+$ wasm-pack build
+$ cd www/
+$ npm install
+$ npm run start
+```
