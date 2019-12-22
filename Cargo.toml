@@ -11,8 +11,9 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook", "wee_alloc"]
 
 [dependencies]
-rand = "0.7.2"
 wasm-bindgen = "0.2"
+js-sys = "0.3.33"
+
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

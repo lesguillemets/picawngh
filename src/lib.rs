@@ -1,6 +1,6 @@
-use rand::prelude::*;
 use std::io::Write;
 
+use js_sys;
 use wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
@@ -34,6 +34,10 @@ impl Cell {
     }
 }
 
+fn coin_flip_js() -> bool {
+    js_sys::Math::random() < 0.5
+}
+
 #[wasm_bindgen]
 extern "C" {
     fn alert(s: &str);
@@ -50,16 +54,16 @@ pub struct Model {
     world: Vec<Cell>,
     pub width: u32,
     pub height: u32,
+    last_update_count: u32,
     rule: Rule,
 }
 
 #[wasm_bindgen]
 impl Model {
     pub fn random(width: u32, height: u32) -> Self {
-        let mut rng = rand::thread_rng();
         let world = (0..width * height)
             .map(|_| {
-                if rng.gen::<bool>() {
+                if coin_flip_js() {
                     Cell::Alive
                 } else {
                     Cell::Dead
@@ -70,6 +74,7 @@ impl Model {
             world,
             width,
             height,
+            last_update_count: 0,
             rule: RULE,
         }
     }
@@ -78,28 +83,34 @@ impl Model {
         self.world.as_ptr()
     }
 
-    pub fn update_and_report(&mut self) -> *const (u32, Cell) {
+    pub fn update_and_report(&mut self) -> *const i32 {
         // update itself, and reports where the status changes
         let current = self.clone();
+        self.last_update_count = 0;
         let mut updates = Vec::new();
         for (i, &cell) in current.world.iter().enumerate() {
             let neighbours = current.neighbours_of(i as u32);
             if cell.is_alive() {
                 if neighbours < self.rule.alive_min || self.rule.alive_max < neighbours {
                     self.world[i] = Cell::Dead;
-                    updates.push((i as u32, Cell::Dead));
+                    updates.push(-((i + 1) as i32));
+                    self.last_update_count += 1;
                 }
             } else {
                 // for dead cells
                 if self.rule.birth_min <= neighbours && neighbours <= self.rule.birth_max {
                     self.world[i] = Cell::Alive;
-                    updates.push((i as u32, Cell::Alive));
+                    updates.push((i + 1) as i32);
+                    self.last_update_count += 1;
                 }
             }
         }
         updates.as_ptr()
     }
 
+    pub fn tell_last_update_count(&self) -> u32 {
+        self.last_update_count
+    }
     pub fn w(&self) -> u32 {
         self.width
     }
